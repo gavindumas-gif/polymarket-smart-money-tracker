@@ -1,0 +1,133 @@
+# Polymarket Smart-Money Consensus Tracker configuration.
+# This file is parsed by the app directly. Keep indentation at two spaces.
+
+mode: dry-run
+
+database:
+  url: sqlite:///./data/polymarket_tracker.sqlite
+  busy_timeout_ms: 5000
+
+api:
+  gamma_base_url: https://gamma-api.polymarket.com
+  data_base_url: https://data-api.polymarket.com
+  clob_base_url: https://clob.polymarket.com
+  ws_market_url: wss://ws-subscriptions-clob.polymarket.com/ws/market
+  ws_user_url: wss://ws-subscriptions-clob.polymarket.com/ws/user
+  request_timeout_seconds: 12
+  max_retries: 3
+  backoff_base_seconds: 0.5
+  backoff_max_seconds: 30
+  jitter_ratio: 0.25
+  circuit_breaker_failures: 5
+  circuit_breaker_reset_seconds: 45
+  user_agent: polymarket-smart-money-tracker/0.1
+
+traders:
+  manual:
+    - trader_id: alpha_mock
+      display_name: Alpha Mock
+      username: alpha_mock
+      wallet_address: 0x1111111111111111111111111111111111111111
+      proxy_wallet_address: 0x1111111111111111111111111111111111111111
+      manual_weight: 1.5
+      discovery_source: manual
+    - trader_id: beta_mock
+      display_name: Beta Mock
+      username: beta_mock
+      wallet_address: 0x2222222222222222222222222222222222222222
+      proxy_wallet_address: 0x2222222222222222222222222222222222222222
+      manual_weight: 1.25
+      discovery_source: manual
+  blacklist: []
+  whitelist: []
+  discovery:
+    enabled: true
+    category: OVERALL
+    time_period: WEEK
+    order_by: PNL
+    limit: 10
+    min_volume: 0
+    min_pnl: null
+    refresh_seconds: 3600
+
+ingestion:
+  source_mode: polling
+  poll_interval_seconds: 20
+  lookback_seconds: 1800
+  max_events_per_poll: 200
+  websocket_enabled: true
+  replay_missed_after_disconnect: true
+  malformed_event_retention_days: 30
+
+normalization:
+  allow_binary_equivalence: false
+  unknown_outcome_direction: UNKNOWN
+
+consensus:
+  windows_seconds: [60, 300, 900, 3600, 21600, 86400]
+  minimum_traders: 2
+  minimum_weighted_traders: 2.0
+  minimum_total_notional: 50.0
+  minimum_individual_notional: 5.0
+  minimum_liquidity: 0.0
+  minimum_trader_quality: 0.0
+  included_markets: []
+  excluded_markets: []
+  included_traders: []
+  excluded_traders: []
+  ignore_exits: true
+  count_adds: true
+  cancel_opposing_signals: false
+  cooldown_seconds: 900
+  alert_score_threshold: 48.0
+
+scoring:
+  max_score: 100.0
+  weights:
+    trader_count: 18.0
+    weighted_trader_count: 18.0
+    total_notional: 16.0
+    concentration: 10.0
+    trader_quality: 12.0
+    recency: 8.0
+    speed: 6.0
+    agreement_ratio: 8.0
+    liquidity: 4.0
+    price_movement: 4.0
+    opposing_penalty: -14.0
+    late_entry_penalty: -5.0
+    uncertainty_penalty: -10.0
+
+alerts:
+  console:
+    enabled: true
+  discord:
+    enabled: false
+    webhook_url_env: DISCORD_WEBHOOK_URL
+  generic_webhook:
+    enabled: false
+    webhook_url_env: GENERIC_WEBHOOK_URL
+  telegram:
+    enabled: false
+    webhook_url_env: TELEGRAM_WEBHOOK_URL
+  cooldown_seconds: 900
+  material_score_delta: 8.0
+  max_per_minute: 6
+
+dashboard:
+  refresh_seconds: 5
+  max_rows: 20
+
+logging:
+  level: INFO
+  json: false
+  file: logs/tracker.log
+
+dry_run:
+  fixture_path: fixtures/mock_trades.json
+  reset_database: true
+
+replay:
+  fixture_path: fixtures/mock_trades.json
+  speed_multiplier: 1000.0
+  reset_database: true

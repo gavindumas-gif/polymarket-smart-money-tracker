@@ -1,0 +1,12 @@
+services:
+  tracker:
+    build: .
+    command: ["python", "-m", "polymarket_tracker.cli", "--config", "config.example.yaml", "live"]
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config.example.yaml:/app/config.example.yaml:ro
+    env_file:
+      - .env
+    restart: unless-stopped
+

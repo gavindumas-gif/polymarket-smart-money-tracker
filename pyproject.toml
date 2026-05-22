@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "polymarket-smart-money-tracker"
+version = "0.1.0"
+description = "Local-first Polymarket smart-money consensus tracker with dry-run, live polling, replay, SQLite persistence, and alerts."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Codex" }]
+dependencies = []
+
+[project.optional-dependencies]
+websocket = ["websockets>=12.0"]
+dev = ["ruff>=0.8.0"]
+
+[project.scripts]
+pm-smart = "polymarket_tracker.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = [".git", ".ruff_cache", ".test_tmp", "data", "logs", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

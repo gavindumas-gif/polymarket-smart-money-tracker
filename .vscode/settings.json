@@ -1,0 +1,16 @@
+{
+  "python.analysis.extraPaths": ["./src"],
+  "python.analysis.typeCheckingMode": "basic",
+  "python.testing.unittestEnabled": true,
+  "python.testing.unittestArgs": ["discover", "-s", "tests"],
+  "python.testing.cwd": "${workspaceFolder}",
+  "ruff.nativeServer": "on",
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": "explicit",
+      "source.organizeImports.ruff": "explicit"
+    }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "PM Tracker: Dry Run",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "polymarket_tracker.cli",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "args": ["--config", "config.example.yaml", "dry-run"],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "PM Tracker: Live Once",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "polymarket_tracker.cli",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "args": ["--config", "config.example.yaml", "live", "--once"],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "PM Tracker: Dashboard",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "polymarket_tracker.cli",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "args": ["--config", "config.example.yaml", "dashboard"],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "PM Tracker: Web Dashboard",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "polymarket_tracker.cli",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "args": ["--config", "config.example.yaml", "web", "--port", "8765"],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "PM Tracker: Init DB",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "polymarket_tracker.cli",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "args": ["--config", "config.example.yaml", "init-db"],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

@@ -1,0 +1,111 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "PM Tracker: Install Dev",
+      "type": "process",
+      "command": "python",
+      "args": ["-m", "pip", "install", "-e", ".[dev]"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "PM Tracker: Ruff Format Check",
+      "type": "process",
+      "command": "python",
+      "args": ["-m", "ruff", "format", "--check", "."],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/src"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "PM Tracker: Ruff Check",
+      "type": "process",
+      "command": "python",
+      "args": ["-m", "ruff", "check", "."],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/src"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "PM Tracker: Compile",
+      "type": "process",
+      "command": "python",
+      "args": ["-m", "compileall", "src"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/src"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "PM Tracker: Test",
+      "type": "process",
+      "command": "python",
+      "args": ["-m", "unittest", "discover", "-s", "tests"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/src"
+        }
+      },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "PM Tracker: Dry Run",
+      "type": "process",
+      "command": "python",
+      "args": ["-m", "polymarket_tracker.cli", "--config", "config.example.yaml", "dry-run"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/src"
+        }
+      },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "PM Tracker: Web Dashboard",
+      "type": "process",
+      "command": "python",
+      "args": ["-m", "polymarket_tracker.cli", "--config", "config.example.yaml", "web", "--port", "8765"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/src"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "PM Tracker: Verify",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "PM Tracker: Ruff Format Check",
+        "PM Tracker: Ruff Check",
+        "PM Tracker: Compile",
+        "PM Tracker: Test",
+        "PM Tracker: Dry Run"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}
