@@ -43,9 +43,9 @@ traders:
   discovery:
     enabled: true
     category: OVERALL
-    time_period: WEEK
+    time_periods: [DAY, WEEK, MONTH, ALL]
     order_by: PNL
-    limit: 10
+    limit: 20
     min_volume: 0
     min_pnl: null
     refresh_seconds: 3600

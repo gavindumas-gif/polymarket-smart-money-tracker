@@ -81,7 +81,7 @@ traders:
       manual_weight: 1.5
 ```
 
-Manual config always works even if leaderboard discovery fails. Leaderboard discovery is public and configurable under `traders.discovery`.
+Manual config always works even if leaderboard discovery fails. Leaderboard discovery is public and configurable under `traders.discovery`. By default it pulls the top 20 from the `DAY`, `WEEK`, `MONTH`, and `ALL` leaderboards, then dedupes overlapping wallets before polling trades.
 
 ## Run Dry Mode
 
@@ -143,7 +143,7 @@ Record and print a health snapshot:
 python -m polymarket_tracker.cli --config config.example.yaml health
 ```
 
-The dashboards include live trades, consensus signals, trader activity, market detail via `--market-id`, and system health.
+The dashboards include live trades, suggested positions, trader activity, market detail via `--market-id`, and system health. Suggested positions are sorted first by how many tracked traders are clustered on the same market/outcome/direction, then by weighted trader count, score, and notional.
 
 ## Alerts
 

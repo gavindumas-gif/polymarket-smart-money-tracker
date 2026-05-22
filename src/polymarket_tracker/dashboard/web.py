@@ -44,7 +44,7 @@ class WebDashboard:
                 (SELECT COUNT(*) FROM malformed_events) AS malformed,
                 (SELECT COUNT(*) FROM traders) AS traders,
                 (SELECT COUNT(DISTINCT market_id) FROM normalized_trades) AS markets,
-                (SELECT MAX(score) FROM consensus_signals) AS top_score,
+                (SELECT MAX(trader_count) FROM consensus_signals) AS top_cluster,
                 (SELECT SUM(notional) FROM normalized_trades) AS total_notional
             """
         )
@@ -66,25 +66,27 @@ class WebDashboard:
             "malformed": int(row["malformed"] or 0),
             "traders": int(row["traders"] or 0),
             "markets": int(row["markets"] or 0),
-            "top_score": _round(row["top_score"]),
+            "top_cluster": int(row["top_cluster"] or 0),
             "total_notional": _round(row["total_notional"]),
         }
 
     def _signals(self) -> list[dict[str, Any]]:
         rows = self.db.fetchall(
             """
-            SELECT signal_id, market_title, market_url, outcome, direction, time_window_seconds,
+            SELECT signal_id, market_id, market_title, market_url, outcome_token_id,
+                   outcome, direction, time_window_seconds,
                    trader_count, weighted_trader_count, traders_involved_json, total_notional,
                    weighted_average_entry_price, latest_price, score, confidence_tier,
                    opposing_trader_count, opposing_notional, uncertainty_notes, trigger_timestamp
             FROM consensus_signals
-            ORDER BY score DESC, trigger_timestamp DESC
+            ORDER BY trader_count DESC, weighted_trader_count DESC, score DESC,
+                     total_notional DESC, latest_trade_timestamp DESC
             LIMIT ?
             """,
-            (self.max_rows,),
+            (self.max_rows * 6,),
         )
         signals = []
-        for row in rows:
+        for row in _dedupe_signal_rows(rows, self.max_rows):
             traders = loads(row["traders_involved_json"], [])
             names = [item.get("display_name") or item.get("trader_id") or "Unknown" for item in traders[:5]]
             signals.append(
@@ -326,6 +328,20 @@ def _window_label(seconds: Any) -> str:
     if total < 86400:
         return f"{total // 3600}h"
     return f"{total // 86400}d"
+
+
+def _dedupe_signal_rows(rows: list[Any], limit: int) -> list[Any]:
+    seen: set[tuple[Any, Any, Any]] = set()
+    deduped: list[Any] = []
+    for row in rows:
+        key = (row["market_id"], row["outcome_token_id"], row["direction"])
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(row)
+        if len(deduped) >= limit:
+            break
+    return deduped
 
 
 DASHBOARD_HTML = r"""<!doctype html>
@@ -679,7 +695,7 @@ DASHBOARD_HTML = r"""<!doctype html>
         </div>
       </div>
       <nav class="nav" aria-label="Dashboard sections">
-        <a href="#signals">Signals <span id="navSignals">0</span></a>
+        <a href="#signals">Suggested <span id="navSignals">0</span></a>
         <a href="#trades">Trades <span id="navTrades">0</span></a>
         <a href="#traders">Traders <span id="navTraders">0</span></a>
         <a href="#health">Health <span id="navHealth">--</span></a>
@@ -689,7 +705,7 @@ DASHBOARD_HTML = r"""<!doctype html>
     <main>
       <div class="topbar">
         <div class="page-title">
-          <h2>Consensus Dashboard</h2>
+          <h2>Suggested Positions</h2>
           <p id="headline">Loading market activity...</p>
         </div>
         <div class="status-row">
@@ -701,7 +717,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       <div class="grid">
         <div>
           <section id="signals">
-            <div class="section-head"><h3>Priority Signals</h3><small id="signalCount">0 signals</small></div>
+            <div class="section-head"><h3>Suggested Positions</h3><small id="signalCount">0 positions</small></div>
             <div class="signal-list" id="signalsList"></div>
           </section>
           <section id="trades">
@@ -800,7 +816,7 @@ DASHBOARD_HTML = r"""<!doctype html>
 
     function renderMetrics(summary) {
       const metrics = [
-        ["Top score", formatNumber(summary.top_score)],
+        ["Top cluster", `${formatNumber(summary.top_cluster)} traders`],
         ["Total notional", formatMoney(summary.total_notional)],
         ["Signals", formatNumber(summary.signals)],
         ["Alerts", formatNumber(summary.alerts)],
@@ -816,7 +832,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       document.getElementById("signalCount").textContent = `${signals.length} shown`;
       const root = document.getElementById("signalsList");
       if (!signals.length) {
-        root.innerHTML = `<div class="empty">No consensus signals yet.</div>`;
+        root.innerHTML = `<div class="empty">No suggested positions yet.</div>`;
         return;
       }
       root.innerHTML = signals.map((signal) => `

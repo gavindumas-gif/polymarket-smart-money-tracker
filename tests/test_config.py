@@ -12,6 +12,8 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.mode, "dry-run")
         self.assertTrue(config.api.data_base_url.startswith("https://"))
         self.assertGreaterEqual(len(config.traders.manual), 2)
+        self.assertEqual(config.traders.discovery.limit, 20)
+        self.assertEqual(config.traders.discovery.time_periods, ("DAY", "WEEK", "MONTH", "ALL"))
 
     def test_invalid_database_url_fails_fast(self) -> None:
         with self.assertRaises(ConfigError):
@@ -33,6 +35,12 @@ class ConfigTests(unittest.TestCase):
             }
         )
         self.assertEqual(config.database.busy_timeout_ms, 5000)
+
+    def test_legacy_single_discovery_time_period_still_loads(self) -> None:
+        config = config_from_dict({"traders": {"discovery": {"time_period": "week", "limit": 5}}})
+        self.assertEqual(config.traders.discovery.time_period, "WEEK")
+        self.assertEqual(config.traders.discovery.time_periods, ("WEEK",))
+        self.assertEqual(config.traders.discovery.limit, 5)
 
 
 if __name__ == "__main__":

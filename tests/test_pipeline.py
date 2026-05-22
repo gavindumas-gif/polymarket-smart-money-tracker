@@ -14,6 +14,10 @@ from polymarket_tracker.utils.json import loads
 from tests.helpers import make_temp_dir
 
 
+def wallet(index: int) -> str:
+    return f"0x{index:040x}"
+
+
 def make_config(tmp):
     db_path = (tmp / "tracker.sqlite").as_posix()
     return config_from_dict(
@@ -103,6 +107,49 @@ class PipelineTests(unittest.TestCase):
         payload = loads(rows[0]["payload_json"], {})
         self.assertIn("risks_uncertainties", payload)
 
+    def test_leaderboard_discovery_uses_all_configured_periods_and_dedupes_wallets(self) -> None:
+        tmp = make_temp_dir()
+        config = config_from_dict(
+            {
+                "database": {"url": f"sqlite:///{(tmp / 'tracker.sqlite').as_posix()}"},
+                "traders": {
+                    "discovery": {
+                        "enabled": True,
+                        "time_periods": ["DAY", "WEEK", "MONTH", "ALL"],
+                        "limit": 20,
+                    }
+                },
+                "logging": {"file": None},
+            }
+        )
+        db = Database(config.database.url)
+        db.migrate()
+
+        class FakeClient:
+            def __init__(self) -> None:
+                self.calls: list[str | None] = []
+
+            def fetch_leaderboard(self, discovery, time_period=None):
+                self.calls.append(time_period)
+                payloads = {
+                    "DAY": [_leaderboard_item(1, "Daily A"), _leaderboard_item(2, "Daily B")],
+                    "WEEK": [_leaderboard_item(2, "Daily B"), _leaderboard_item(3, "Weekly C")],
+                    "MONTH": [_leaderboard_item(3, "Weekly C"), _leaderboard_item(4, "Monthly D")],
+                    "ALL": [_leaderboard_item(4, "Monthly D"), _leaderboard_item(1, "Daily A")],
+                }
+                return payloads[time_period]
+
+        client = FakeClient()
+        discovered = TraderRegistry(db, config.traders).discover_from_leaderboard(client)
+        traders = db.fetchall("SELECT * FROM traders ORDER BY trader_id")
+        snapshots = db.fetchall("SELECT * FROM trader_discovery_snapshots ORDER BY source")
+        db.close()
+
+        self.assertEqual(client.calls, ["DAY", "WEEK", "MONTH", "ALL"])
+        self.assertEqual(discovered, 4)
+        self.assertEqual(len(traders), 4)
+        self.assertEqual(len(snapshots), 4)
+
     def test_replay_mode_runs_with_fixture(self) -> None:
         tmp = make_temp_dir()
         config = make_config(tmp)
@@ -122,7 +169,16 @@ class PipelineTests(unittest.TestCase):
         db.close()
         self.assertGreaterEqual(snapshot["summary"]["signals"], 1)
         self.assertGreaterEqual(len(snapshot["trades"]), 1)
-        self.assertIn("Consensus Dashboard", html)
+        self.assertIn("Suggested Positions", html)
+
+
+def _leaderboard_item(index: int, username: str) -> dict[str, object]:
+    return {
+        "proxyWallet": wallet(index),
+        "userName": username,
+        "vol": 1000 * index,
+        "pnl": 100 * index,
+    }
 
 
 if __name__ == "__main__":

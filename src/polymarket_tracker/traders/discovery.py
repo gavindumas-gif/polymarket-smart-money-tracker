@@ -36,18 +36,20 @@ class TraderRegistry:
     def discover_from_leaderboard(self, client: PolymarketClient) -> int:
         if not self.config.discovery.enabled:
             return 0
-        payload = client.fetch_leaderboard(self.config.discovery)
+        payload_by_period = self._fetch_leaderboard_periods(client)
+        merged = self._merge_leaderboard_payloads(payload_by_period)
         now = iso_now()
         with self.db.transaction():
-            self.db.execute(
-                """
-                INSERT INTO trader_discovery_snapshots(source, captured_at, raw_payload)
-                VALUES (?, ?, ?)
-                """,
-                ("data-api:/v1/leaderboard", now, dumps(payload)),
-            )
+            for period, payload in payload_by_period:
+                self.db.execute(
+                    """
+                    INSERT INTO trader_discovery_snapshots(source, captured_at, raw_payload)
+                    VALUES (?, ?, ?)
+                    """,
+                    (f"data-api:/v1/leaderboard:{period}", now, dumps(payload)),
+                )
             count = 0
-            for item in payload:
+            for item in merged:
                 if not self._passes_filters(item):
                     continue
                 proxy = item.get("proxyWallet")
@@ -68,12 +70,44 @@ class TraderRegistry:
                         "derived_weight": self._derived_weight(item),
                         "volume": item.get("vol"),
                         "pnl": item.get("pnl"),
-                        "discovery_source": "data-api-leaderboard",
+                        "discovery_source": "data-api-leaderboard:" + ",".join(item.get("_leaderboard_periods", [])),
                         "raw_profile_payload": item,
                     }
                 )
                 count += 1
         return count
+
+    def _fetch_leaderboard_periods(self, client: PolymarketClient) -> list[tuple[str, list[dict[str, Any]]]]:
+        payloads: list[tuple[str, list[dict[str, Any]]]] = []
+        for period in self.config.discovery.time_periods:
+            try:
+                payloads.append((period, client.fetch_leaderboard(self.config.discovery, period)))
+            except Exception as exc:
+                self.repo.insert_api_error(
+                    "data-api:/v1/leaderboard",
+                    type(exc).__name__,
+                    str(exc),
+                    raw_payload={"time_period": period},
+                )
+        return payloads
+
+    def _merge_leaderboard_payloads(
+        self, payload_by_period: list[tuple[str, list[dict[str, Any]]]]
+    ) -> list[dict[str, Any]]:
+        merged: dict[str, dict[str, Any]] = {}
+        for period, payload in payload_by_period:
+            for item in payload:
+                proxy = str(item.get("proxyWallet") or "").lower()
+                if not proxy:
+                    continue
+                existing = merged.get(proxy)
+                if existing:
+                    periods = existing.setdefault("_leaderboard_periods", [])
+                    periods.append(period)
+                    existing["_leaderboard_periods"] = list(dict.fromkeys(periods))
+                    continue
+                merged[proxy] = {**item, "_leaderboard_periods": [period]}
+        return list(merged.values())
 
     def tracked_wallets(self) -> list[str]:
         rows = self.repo.list_traders()

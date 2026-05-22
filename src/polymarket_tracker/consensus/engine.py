@@ -57,7 +57,7 @@ class ConsensusEngine:
         signals: list[ConsensusSignal] = []
         for window in self.config.windows_seconds:
             signals.extend(self._evaluate_window(window))
-        return signals
+        return sorted(signals, key=_signal_priority, reverse=True)
 
     def _evaluate_window(self, window_seconds: int) -> list[ConsensusSignal]:
         cutoff = (utc_now() - timedelta(seconds=window_seconds)).isoformat().replace("+00:00", "Z")
@@ -293,3 +293,13 @@ class ConsensusEngine:
                 dumps(signal.raw_components),
             ),
         )
+
+
+def _signal_priority(signal: ConsensusSignal) -> tuple[int, float, float, float, str]:
+    return (
+        signal.trader_count,
+        signal.weighted_trader_count,
+        signal.score,
+        signal.total_notional,
+        signal.latest_trade_timestamp,
+    )

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from polymarket_tracker.db.sqlite import Database
 from polymarket_tracker.utils.json import loads
 
@@ -45,13 +47,14 @@ class ConsoleDashboard:
             """
             SELECT *
             FROM consensus_signals
-            ORDER BY score DESC, trigger_timestamp DESC
+            ORDER BY trader_count DESC, weighted_trader_count DESC, score DESC,
+                     total_notional DESC, latest_trade_timestamp DESC
             LIMIT ?
             """,
-            (self.max_rows,),
+            (self.max_rows * 6,),
         )
         lines = ["CONSENSUS SIGNALS", "-" * 80]
-        for row in rows:
+        for row in _dedupe_signal_rows(rows, self.max_rows):
             traders = loads(row["traders_involved_json"], [])
             trader_names = ", ".join(item.get("display_name", item.get("trader_id", "?")) for item in traders[:4])
             lines.append(
@@ -152,3 +155,17 @@ class ConsoleDashboard:
                 f"degraded={row['degraded_mode_status']} blockers={row['unresolved_blockers'] or 'none'}",
             ]
         )
+
+
+def _dedupe_signal_rows(rows: list[Any], limit: int) -> list[Any]:
+    seen: set[tuple[Any, Any, Any]] = set()
+    deduped: list[Any] = []
+    for row in rows:
+        key = (row["market_id"], row["outcome_token_id"], row["direction"])
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(row)
+        if len(deduped) >= limit:
+            break
+    return deduped

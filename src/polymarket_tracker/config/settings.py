@@ -51,8 +51,9 @@ class DiscoveryConfig:
     enabled: bool = True
     category: str = "OVERALL"
     time_period: str = "WEEK"
+    time_periods: tuple[str, ...] = ("DAY", "WEEK", "MONTH", "ALL")
     order_by: str = "PNL"
-    limit: int = 10
+    limit: int = 20
     min_volume: float = 0.0
     min_pnl: float | None = None
     refresh_seconds: int = 3600
@@ -205,15 +206,29 @@ def config_from_dict(raw: dict[str, Any]) -> AppConfig:
     if isinstance(raw.get("scoring", {}).get("weights"), dict):
         scoring_weights.update({k: float(v) for k, v in raw["scoring"]["weights"].items()})
 
+    traders_raw = raw.get("traders", {})
+    discovery_raw = traders_raw.get("discovery", {})
+    discovery_periods = _discovery_time_periods(discovery_raw)
+    discovery_values = {
+        key: value
+        for key, value in discovery_raw.items()
+        if key in DiscoveryConfig.__dataclass_fields__ and key not in {"time_period", "time_periods"}
+    }
+    discovery = DiscoveryConfig(
+        **discovery_values,
+        time_period=discovery_periods[0],
+        time_periods=discovery_periods,
+    )
+
     config = AppConfig(
         mode=str(raw.get("mode", "dry-run")),
         database=_build(DatabaseConfig, raw.get("database", {})),
         api=_build(ApiConfig, raw.get("api", {})),
         traders=TradersConfig(
-            manual=tuple(ManualTraderConfig(**item) for item in raw.get("traders", {}).get("manual", [])),
-            blacklist=tuple(raw.get("traders", {}).get("blacklist", [])),
-            whitelist=tuple(raw.get("traders", {}).get("whitelist", [])),
-            discovery=_build(DiscoveryConfig, raw.get("traders", {}).get("discovery", {})),
+            manual=tuple(ManualTraderConfig(**item) for item in traders_raw.get("manual", [])),
+            blacklist=tuple(traders_raw.get("blacklist", [])),
+            whitelist=tuple(traders_raw.get("whitelist", [])),
+            discovery=discovery,
         ),
         ingestion=_build(IngestionConfig, raw.get("ingestion", {})),
         normalization=_build(NormalizationConfig, raw.get("normalization", {})),
@@ -259,6 +274,10 @@ def validate_config(config: AppConfig) -> None:
         raise ConfigError("ingestion.poll_interval_seconds must be positive")
     if config.api.max_retries < 0:
         raise ConfigError("api.max_retries cannot be negative")
+    if config.traders.discovery.limit < 1:
+        raise ConfigError("traders.discovery.limit must be at least 1")
+    if not config.traders.discovery.time_periods:
+        raise ConfigError("traders.discovery.time_periods must include at least one period")
     for name, url in {
         "gamma_base_url": config.api.gamma_base_url,
         "data_base_url": config.api.data_base_url,
@@ -285,3 +304,15 @@ def _build(cls: type[Any], values: dict[str, Any]) -> Any:
         return cls()
     allowed = set(cls.__dataclass_fields__)  # type: ignore[attr-defined]
     return cls(**{key: value for key, value in values.items() if key in allowed})
+
+
+def _discovery_time_periods(discovery: dict[str, Any]) -> tuple[str, ...]:
+    if "time_periods" in discovery:
+        raw_periods = discovery["time_periods"]
+    elif "time_period" in discovery:
+        raw_periods = [discovery["time_period"]]
+    else:
+        raw_periods = list(DiscoveryConfig.time_periods)
+    if isinstance(raw_periods, str):
+        raw_periods = [raw_periods]
+    return tuple(dict.fromkeys(str(period).upper() for period in raw_periods if str(period).strip()))

@@ -25,13 +25,13 @@ class PolymarketClient:
             raise ValueError("Data API /trades returned non-list payload")
         return data
 
-    def fetch_leaderboard(self, discovery: DiscoveryConfig) -> list[dict[str, Any]]:
+    def fetch_leaderboard(self, discovery: DiscoveryConfig, time_period: str | None = None) -> list[dict[str, Any]]:
         data = self.http.get_json(
             self.config.data_base_url,
             "/v1/leaderboard",
             {
                 "category": discovery.category,
-                "timePeriod": discovery.time_period,
+                "timePeriod": time_period or discovery.time_period,
                 "orderBy": discovery.order_by,
                 "limit": discovery.limit,
             },
